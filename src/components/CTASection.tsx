@@ -83,6 +83,9 @@ const CTASection = () => {
       case "auth/quota-exceeded":
         message = "Daily quota exceeded. Contact support.";
         break;
+        case "auth/argument-error":
+          message = "Verification failed. Please reload the page.";
+          break;
       case "auth/billing-not-enabled":
         message = "Billing not enabled. Contact support.";
         break;
@@ -178,38 +181,107 @@ const CTASection = () => {
     }
   };
 
+  // const handleResendOtp = async () => {
+  //   setIsSubmitting(true);
+  //   try {
+  //     if (window.recaptchaVerifier) {
+  //       window.recaptchaVerifier.clear();
+  //     }
+      
+  //     window.recaptchaVerifier = new RecaptchaVerifier(
+  //       auth,
+  //       "recaptcha-container",
+  //       { size: "invisible" }
+  //     );
+
+  //     const result = await signInWithPhoneNumber(
+  //       auth,
+  //       `+91${phone}`,
+  //       window.recaptchaVerifier
+  //     );
+      
+  //     setConfirmationResult(result);
+  //     toast({
+  //       title: "OTP Resent",
+  //       description: "New verification code sent",
+  //       variant: "default",
+  //     });
+  //   } catch (error) {
+  //     handleFirebaseError(error);
+  //   } finally {
+  //     setIsSubmitting(false);
+  //   }
+  // };
   const handleResendOtp = async () => {
+    const now = Date.now();
+    if (now - lastRequestTime < RATE_LIMIT_DELAY) {
+      toast({
+        title: "Please Wait",
+        description: "You can request a new OTP after 30 seconds",
+        variant: "destructive",
+      });
+      return;
+    }
+  
     setIsSubmitting(true);
     try {
+      // Clear existing reCAPTCHA verifier if exists
       if (window.recaptchaVerifier) {
         window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null;
       }
-      
-      window.recaptchaVerifier = new RecaptchaVerifier(
+  
+      // Create new reCAPTCHA verifier
+      const newVerifier = new RecaptchaVerifier(
         auth,
         "recaptcha-container",
-        { size: "invisible" }
+        {
+          size: "invisible",
+          callback: (response: string) => {
+            console.log("reCAPTCHA resolved:", response);
+          },
+          "expired-callback": () => {
+            window.recaptchaVerifier = null;
+            console.log("reCAPTCHA expired");
+          }
+        }
       );
-
+  
+      // Store verifier in window
+      window.recaptchaVerifier = newVerifier;
+  
+      // Render the reCAPTCHA widget
+      const widgetId = await newVerifier.render();
+      console.log("reCAPTCHA widget rendered with ID:", widgetId);
+  
+      // Send the OTP
       const result = await signInWithPhoneNumber(
         auth,
         `+91${phone}`,
-        window.recaptchaVerifier
+        newVerifier
       );
       
+      // Update state and timing
+      lastRequestTime = Date.now();
       setConfirmationResult(result);
       toast({
-        title: "OTP Resent",
-        description: "New verification code sent",
+        title: "OTP Resent!",
+        description: "New verification code sent to your number",
         variant: "default",
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Resend OTP Error:", error);
       handleFirebaseError(error);
+      
+      // Reset reCAPTCHA on error
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null;
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
-
   const handleChangePhone = () => {
     setStep("form");
     setOtp("");
