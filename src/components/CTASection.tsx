@@ -28,7 +28,7 @@ const CTASection = () => {
   const [phone, setPhone] = useState("");
   const [concern, setConcern] = useState("");
   const [phoneError, setPhoneError] = useState("");
-
+  const [emailError, setEmailError] = useState("");
   // OTP state
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState("");
@@ -63,7 +63,10 @@ const CTASection = () => {
       }
     };
   }, []);
-
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Basic email validation regex
+    return emailRegex.test(email);
+  };
   const validatePhoneNumber = (phone: string): boolean => {
     const phoneRegex = /^[6-9]\d{9}$/;
     return phoneRegex.test(phone);
@@ -111,11 +114,24 @@ const CTASection = () => {
       return;
     }
 
+    setEmailError("");
+    setPhoneError("");
+
     if (!validatePhoneNumber(phone)) {
       setPhoneError("Please enter a valid 10-digit Indian phone number");
       return;
     }
-    setPhoneError("");
+    // Validate email first
+    if (!email) {
+      setEmailError("Email is required");
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setEmailError("Invalid email address");
+      return;
+    }
+
 
     setIsSubmitting(true);
     try {
@@ -181,7 +197,7 @@ const CTASection = () => {
     }
   };
 
- 
+
   const handleResendOtp = async () => {
     const now = Date.now();
     if (now - lastRequestTime < RATE_LIMIT_DELAY) {
@@ -298,14 +314,19 @@ const CTASection = () => {
                           <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/50" />
                           <Input
                             id="email"
-                            type="email"
                             placeholder="you@example.com"
                             value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            className="pl-10 border-white/30 bg-white/10 text-white placeholder:text-white/50"
+                            onChange={(e) => {
+                              setEmail(e.target.value);
+                              setEmailError("");
+                            }}
+                            className={`pl-10 border ${emailError ? "border-red-500" : "border-white/30"
+                              } bg-white/10 text-white placeholder:text-white/50`}
                           />
                         </div>
+                        {emailError && (
+                          <p className="text-red-500 text-sm">{emailError}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="phone" className="text-white">Phone Number*</Label>
