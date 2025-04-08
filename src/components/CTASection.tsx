@@ -166,7 +166,7 @@ const CTASection = () => {
       formData.append("Phone", phone);
       formData.append("Concern", concern);
       formData.append("Timestamp", new Date().toLocaleString());
-     
+
       await fetch(
         "https://script.google.com/macros/s/AKfycbzS-_n5tlwWP3vC5pKDEScaanAxWViApqxDxPjGRX1yLd_EqkFeVpXG5lBlbNUvCO76PQ/exec",
         { method: "POST", body: formData }
@@ -181,37 +181,7 @@ const CTASection = () => {
     }
   };
 
-  // const handleResendOtp = async () => {
-  //   setIsSubmitting(true);
-  //   try {
-  //     if (window.recaptchaVerifier) {
-  //       window.recaptchaVerifier.clear();
-  //     }
-
-  //     window.recaptchaVerifier = new RecaptchaVerifier(
-  //       auth,
-  //       "recaptcha-container",
-  //       { size: "invisible" }
-  //     );
-
-  //     const result = await signInWithPhoneNumber(
-  //       auth,
-  //       `+91${phone}`,
-  //       window.recaptchaVerifier
-  //     );
-
-  //     setConfirmationResult(result);
-  //     toast({
-  //       title: "OTP Resent",
-  //       description: "New verification code sent",
-  //       variant: "default",
-  //     });
-  //   } catch (error) {
-  //     handleFirebaseError(error);
-  //   } finally {
-  //     setIsSubmitting(false);
-  //   }
-  // };
+ 
   const handleResendOtp = async () => {
     const now = Date.now();
     if (now - lastRequestTime < RATE_LIMIT_DELAY) {
@@ -222,7 +192,7 @@ const CTASection = () => {
       });
       return;
     }
-  
+
     setIsSubmitting(true);
     try {
       // Clear existing reCAPTCHA if present
@@ -230,7 +200,7 @@ const CTASection = () => {
         window.recaptchaVerifier.clear();
         window.recaptchaVerifier = null;
       }
-  
+
       // Create new invisible reCAPTCHA verifier
       const newVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
         size: "invisible",
@@ -242,18 +212,18 @@ const CTASection = () => {
           window.recaptchaVerifier = null;
         },
       });
-  
+
       // Store new verifier instance
       window.recaptchaVerifier = newVerifier;
-  
+
       // Verify phone number again
       const formattedPhone = `+91${phone}`;
       const result = await signInWithPhoneNumber(auth, formattedPhone, newVerifier);
-      
+
       // Update state and timing
       lastRequestTime = Date.now();
       setConfirmationResult(result);
-      
+
       toast({
         title: "New OTP Sent!",
         description: "Check your mobile for the new verification code",
@@ -261,7 +231,7 @@ const CTASection = () => {
       });
     } catch (error: any) {
       console.error("Resend OTP Error:", error);
-      
+
       // Specific error handling
       if (error.code === "auth/argument-error") {
         toast({
@@ -272,7 +242,7 @@ const CTASection = () => {
         window.recaptchaVerifier = null;
         return;
       }
-      
+
       handleFirebaseError(error);
     } finally {
       setIsSubmitting(false);
@@ -394,6 +364,7 @@ const CTASection = () => {
                   <>
                     <h3 className="text-2xl font-semibold text-white mb-6">Enter OTP</h3>
                     <form onSubmit={handleOtpSubmit} className="space-y-4">
+                      <div id="recaptcha-container" className="hidden" />
                       <div className="space-y-2">
                         <Label htmlFor="otp" className="text-white">OTP Code</Label>
                         <Input
