@@ -1,5 +1,5 @@
 
-import { Facebook, Twitter, Instagram, Mail } from "lucide-react";
+import { Facebook, Twitter, Instagram, Mail, Linkedin } from "lucide-react";
 
 const Footer = ({toggleTerms}) => {
   return (
@@ -17,17 +17,11 @@ const Footer = ({toggleTerms}) => {
               Keeping children safe in the digital world through innovative parental controls.
             </p>
             <div className="flex gap-4">
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <Facebook size={20} />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <Twitter size={20} />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
+              <a href="https://www.instagram.com/woofofficial__/" target="_blank" className="text-gray-400 hover:text-white transition-colors">
                 <Instagram size={20} />
               </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <Mail size={20} />
+              <a href="https://www.linkedin.com/company/woofofficial" target="_blank" className="text-gray-400 hover:text-white transition-colors">
+                <Linkedin size={20} />
               </a>
             </div>
           </div>
