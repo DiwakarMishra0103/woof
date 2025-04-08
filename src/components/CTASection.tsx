@@ -14,7 +14,7 @@ declare global {
   }
 }
 
-const RATE_LIMIT_DELAY = 30000; // 30 seconds cooldown
+const RATE_LIMIT_DELAY = 30000;
 let lastRequestTime = 0;
 
 const CTASection = () => {
@@ -33,27 +33,27 @@ const CTASection = () => {
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState("");
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
+  const [resendTimer, setResendTimer] = useState(0);
 
-  // reCAPTCHA lifecycle management
+  const initializeRecaptcha = () => {
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(
+        auth,
+        "recaptcha-container",
+        {
+          size: "invisible",
+          callback: (response) => {
+            console.log("reCAPTCHA verified:", response);
+          },
+          "expired-callback": () => {
+            window.recaptchaVerifier = null;
+          },
+        }
+      );
+    }
+  };
+
   useEffect(() => {
-    const initializeRecaptcha = () => {
-      if (!window.recaptchaVerifier) {
-        window.recaptchaVerifier = new RecaptchaVerifier(
-          auth,
-          "recaptcha-container",
-          {
-            size: "invisible",
-            callback: (response) => {
-              console.log("reCAPTCHA verified:", response);
-            },
-            "expired-callback": () => {
-              window.recaptchaVerifier = null;
-            },
-          }
-        );
-      }
-    };
-
     initializeRecaptcha();
 
     return () => {
@@ -63,10 +63,21 @@ const CTASection = () => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timerId = setTimeout(() => {
+        setResendTimer(resendTimer - 1);
+      }, 1000);
+      return () => clearTimeout(timerId);
+    }
+  }, [resendTimer]);
+
   const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Basic email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
+
   const validatePhoneNumber = (phone: string): boolean => {
     const phoneRegex = /^[6-9]\d{9}$/;
     return phoneRegex.test(phone);
@@ -121,20 +132,18 @@ const CTASection = () => {
       setPhoneError("Please enter a valid 10-digit Indian phone number");
       return;
     }
-    // Validate email first
     if (!email) {
       setEmailError("Email is required");
       return;
     }
-
     if (!validateEmail(email)) {
       setEmailError("Invalid email address");
       return;
     }
 
-
     setIsSubmitting(true);
     try {
+      initializeRecaptcha();
       const appVerifier = window.recaptchaVerifier;
       if (!appVerifier) throw new Error("reCAPTCHA not initialized");
 
@@ -143,6 +152,7 @@ const CTASection = () => {
 
       lastRequestTime = Date.now();
       setConfirmationResult(result);
+      setResendTimer(30);
       toast({
         title: "OTP Sent",
         description: "Please check your phone for the verification code",
@@ -166,9 +176,11 @@ const CTASection = () => {
       await submitToGoogleSheets();
       setStep("thankyou");
     } catch (error: any) {
-      setOtpError(error.message.includes("invalid-verification-code")
-        ? "Invalid OTP. Please try again."
-        : "Verification failed. Please request a new OTP.");
+      setOtpError(
+        error.message.includes("invalid-verification-code")
+          ? "Invalid OTP. Please try again."
+          : "Verification failed. Please request a new OTP."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -197,7 +209,6 @@ const CTASection = () => {
     }
   };
 
-
   const handleResendOtp = async () => {
     const now = Date.now();
     if (now - lastRequestTime < RATE_LIMIT_DELAY) {
@@ -211,35 +222,21 @@ const CTASection = () => {
 
     setIsSubmitting(true);
     try {
-      // Clear existing reCAPTCHA if present
       if (window.recaptchaVerifier) {
         window.recaptchaVerifier.clear();
         window.recaptchaVerifier = null;
       }
 
-      // Create new invisible reCAPTCHA verifier
-      const newVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-        size: "invisible",
-        callback: (response: string) => {
-          console.log("New reCAPTCHA resolved:", response);
-        },
-        "expired-callback": () => {
-          console.log("reCAPTCHA expired - creating new one");
-          window.recaptchaVerifier = null;
-        },
-      });
+      initializeRecaptcha();
+      const appVerifier = window.recaptchaVerifier;
+      if (!appVerifier) throw new Error("reCAPTCHA not initialized");
 
-      // Store new verifier instance
-      window.recaptchaVerifier = newVerifier;
-
-      // Verify phone number again
       const formattedPhone = `+91${phone}`;
-      const result = await signInWithPhoneNumber(auth, formattedPhone, newVerifier);
+      const result = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
 
-      // Update state and timing
       lastRequestTime = Date.now();
       setConfirmationResult(result);
-
+      setResendTimer(30);
       toast({
         title: "New OTP Sent!",
         description: "Check your mobile for the new verification code",
@@ -247,8 +244,6 @@ const CTASection = () => {
       });
     } catch (error: any) {
       console.error("Resend OTP Error:", error);
-
-      // Specific error handling
       if (error.code === "auth/argument-error") {
         toast({
           title: "Security Check Required",
@@ -258,7 +253,6 @@ const CTASection = () => {
         window.recaptchaVerifier = null;
         return;
       }
-
       handleFirebaseError(error);
     } finally {
       setIsSubmitting(false);
@@ -270,6 +264,10 @@ const CTASection = () => {
     setOtp("");
     setOtpError("");
     setConfirmationResult(null);
+    if (window.recaptchaVerifier) {
+      window.recaptchaVerifier.clear();
+      window.recaptchaVerifier = null;
+    }
   };
 
   return (
@@ -415,9 +413,9 @@ const CTASection = () => {
                         variant="link"
                         onClick={handleResendOtp}
                         className="text-white underline p-0"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || resendTimer > 0}
                       >
-                        Resend OTP
+                        Resend OTP {resendTimer > 0 && `(${resendTimer}s)`}
                       </Button>
                       <Button
                         variant="link"
