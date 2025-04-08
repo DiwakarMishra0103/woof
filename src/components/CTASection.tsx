@@ -83,9 +83,9 @@ const CTASection = () => {
       case "auth/quota-exceeded":
         message = "Daily quota exceeded. Contact support.";
         break;
-        case "auth/argument-error":
-          message = "Verification failed. Please reload the page.";
-          break;
+      case "auth/argument-error":
+        message = "Verification failed. Please reload the page.";
+        break;
       case "auth/billing-not-enabled":
         message = "Billing not enabled. Contact support.";
         break;
@@ -124,7 +124,7 @@ const CTASection = () => {
 
       const result = await signInWithPhoneNumber(auth, `+91${phone}`, appVerifier);
       console.log("OTP sent successfully:", result);
-      
+
       lastRequestTime = Date.now();
       setConfirmationResult(result);
       toast({
@@ -150,7 +150,7 @@ const CTASection = () => {
       await submitToGoogleSheets();
       setStep("thankyou");
     } catch (error: any) {
-      setOtpError(error.message.includes("invalid-verification-code") 
+      setOtpError(error.message.includes("invalid-verification-code")
         ? "Invalid OTP. Please try again."
         : "Verification failed. Please request a new OTP.");
     } finally {
@@ -165,8 +165,8 @@ const CTASection = () => {
       formData.append("Email", email);
       formData.append("Phone", phone);
       formData.append("Concern", concern);
-      formData.append("Timestamp", new Date().toISOString());
-
+      formData.append("Timestamp", new Date().toLocaleString());
+     
       await fetch(
         "https://script.google.com/macros/s/AKfycbzS-_n5tlwWP3vC5pKDEScaanAxWViApqxDxPjGRX1yLd_EqkFeVpXG5lBlbNUvCO76PQ/exec",
         { method: "POST", body: formData }
@@ -187,7 +187,7 @@ const CTASection = () => {
   //     if (window.recaptchaVerifier) {
   //       window.recaptchaVerifier.clear();
   //     }
-      
+
   //     window.recaptchaVerifier = new RecaptchaVerifier(
   //       auth,
   //       "recaptcha-container",
@@ -199,7 +199,7 @@ const CTASection = () => {
   //       `+91${phone}`,
   //       window.recaptchaVerifier
   //     );
-      
+
   //     setConfirmationResult(result);
   //     toast({
   //       title: "OTP Resent",
@@ -225,63 +225,60 @@ const CTASection = () => {
   
     setIsSubmitting(true);
     try {
-      // Clear existing reCAPTCHA verifier if exists
+      // Clear existing reCAPTCHA if present
       if (window.recaptchaVerifier) {
         window.recaptchaVerifier.clear();
         window.recaptchaVerifier = null;
       }
   
-      // Create new reCAPTCHA verifier
-      const newVerifier = new RecaptchaVerifier(
-        auth,
-        "recaptcha-container",
-        {
-          size: "invisible",
-          callback: (response: string) => {
-            console.log("reCAPTCHA resolved:", response);
-          },
-          "expired-callback": () => {
-            window.recaptchaVerifier = null;
-            console.log("reCAPTCHA expired");
-          }
-        }
-      );
+      // Create new invisible reCAPTCHA verifier
+      const newVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+        size: "invisible",
+        callback: (response: string) => {
+          console.log("New reCAPTCHA resolved:", response);
+        },
+        "expired-callback": () => {
+          console.log("reCAPTCHA expired - creating new one");
+          window.recaptchaVerifier = null;
+        },
+      });
   
-      // Store verifier in window
+      // Store new verifier instance
       window.recaptchaVerifier = newVerifier;
   
-      // Render the reCAPTCHA widget
-      const widgetId = await newVerifier.render();
-      console.log("reCAPTCHA widget rendered with ID:", widgetId);
-  
-      // Send the OTP
-      const result = await signInWithPhoneNumber(
-        auth,
-        `+91${phone}`,
-        newVerifier
-      );
+      // Verify phone number again
+      const formattedPhone = `+91${phone}`;
+      const result = await signInWithPhoneNumber(auth, formattedPhone, newVerifier);
       
       // Update state and timing
       lastRequestTime = Date.now();
       setConfirmationResult(result);
+      
       toast({
-        title: "OTP Resent!",
-        description: "New verification code sent to your number",
+        title: "New OTP Sent!",
+        description: "Check your mobile for the new verification code",
         variant: "default",
       });
     } catch (error: any) {
       console.error("Resend OTP Error:", error);
-      handleFirebaseError(error);
       
-      // Reset reCAPTCHA on error
-      if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear();
+      // Specific error handling
+      if (error.code === "auth/argument-error") {
+        toast({
+          title: "Security Check Required",
+          description: "Please complete the security verification again",
+          variant: "destructive",
+        });
         window.recaptchaVerifier = null;
+        return;
       }
+      
+      handleFirebaseError(error);
     } finally {
       setIsSubmitting(false);
     }
   };
+
   const handleChangePhone = () => {
     setStep("form");
     setOtp("");
@@ -353,9 +350,8 @@ const CTASection = () => {
                               setPhone(val);
                             }}
                             required
-                            className={`pl-10 border ${
-                              phoneError ? "border-red-500" : "border-white/30"
-                            } bg-white/10 text-white placeholder:text-white/50`}
+                            className={`pl-10 border ${phoneError ? "border-red-500" : "border-white/30"
+                              } bg-white/10 text-white placeholder:text-white/50`}
                           />
                         </div>
                         {phoneError && (
